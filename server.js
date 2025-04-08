@@ -179,18 +179,32 @@ app.get('/reports', async (req, res) => {
             LEFT JOIN pda p ON r.plumber_id = p.id
         `);
 
-        console.log('All reports query result:', rows);
+        console.log('Raw query results:', rows.map(row => ({
+            id: row.id,
+            status: row.status,
+            plumber_id: row.plumber_id,
+            plumber_id_type: typeof row.plumber_id,
+            actual_plumber_id: row.actual_plumber_id,
+            actual_plumber_id_type: typeof row.actual_plumber_id
+        })));
         
         // Process the rows to ensure proper data format
         const processedRows = rows.map(row => {
+            // Convert plumber_id to number if it exists
+            const plumber_id = row.plumber_id ? Number(row.plumber_id) : null;
+            const actual_plumber_id = row.actual_plumber_id ? Number(row.actual_plumber_id) : null;
+            
             console.log('Processing report:', {
                 id: row.id,
                 status: row.status,
-                plumber_id: row.plumber_id,
-                actual_plumber_id: row.actual_plumber_id
+                plumber_id,
+                actual_plumber_id
             });
+            
             return {
                 ...row,
+                plumber_id,
+                actual_plumber_id,
                 proof: row.proof ? (
                     row.proof_type ? 
                     `data:${row.proof_type};base64,${row.proof.toString('base64')}` : 
