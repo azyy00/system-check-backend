@@ -165,14 +165,11 @@ app.get('/reports', async (req, res) => {
                 r.status as original_status,
                 r.plumber_id,
                 p.username as plumber_username,
-                CASE 
-                    WHEN ar.report_id IS NOT NULL THEN 'completed'
-                    WHEN r.status = 'working' AND ar.report_id IS NULL THEN 'working'
-                    ELSE 'pending'
-                END as status
+                r.status as status
             FROM list_report r 
             LEFT JOIN pda p ON r.plumber_id = p.id
             LEFT JOIN \`accomplish-report\` ar ON r.id = ar.report_id
+            WHERE r.status IS NOT NULL
         `);
 
         console.log('Query executed successfully. Row count:', rows?.length);
@@ -182,6 +179,7 @@ app.get('/reports', async (req, res) => {
         const assignedReports = rows.filter(r => r.plumber_id != null);
         console.log('Reports with plumber assignments:', assignedReports.length);
         console.log('Reports with working status:', rows.filter(r => r.status === 'working').length);
+        console.log('All report statuses:', rows.map(r => ({ id: r.id, status: r.status, plumber_id: r.plumber_id })));
         
         if (!Array.isArray(rows)) {
             throw new Error('Expected array of rows but got: ' + typeof rows);
@@ -517,44 +515,64 @@ app.post('/reports/:id/accept', async (req, res) => {
     const { id } = req.params;
     const { plumberId } = req.body;
     
+    console.log('Job acceptance request:', { reportId: id, plumberId });
+    
     try {
         // Start transaction
         await pool.query('START TRANSACTION');
+        console.log('Transaction started');
 
         // Check if report exists and isn't already assigned
         const [report] = await pool.query(
             'SELECT * FROM list_report WHERE id = ?',
             [id]
         );
+        console.log('Found report:', report[0]);
 
         if (report.length === 0) {
+            console.log('Report not found');
             await pool.query('ROLLBACK');
             return res.status(404).json({ message: 'Report not found' });
         }
 
         if (report[0].status === 'working') {
+            console.log('Report already assigned');
             await pool.query('ROLLBACK');
             return res.status(400).json({ message: 'Report already assigned' });
         }
 
         // Update the report status and assign plumber
+        console.log('Updating report status to working and assigning plumber');
         const [result] = await pool.query(
             'UPDATE list_report SET status = ?, plumber_id = ? WHERE id = ?',
             ['working', plumberId, id]
         );
+        console.log('Update result:', result);
 
         if (result.affectedRows === 0) {
+            console.log('Failed to update report');
             await pool.query('ROLLBACK');
             throw new Error('Failed to update report');
         }
 
+        // Verify the update
+        const [updatedReport] = await pool.query(
+            'SELECT * FROM list_report WHERE id = ?',
+            [id]
+        );
+        console.log('Updated report:', updatedReport[0]);
+
         // Commit the transaction
         await pool.query('COMMIT');
+        console.log('Transaction committed');
         
-        res.status(200).json({ message: 'Job accepted successfully' });
+        res.status(200).json({ 
+            message: 'Job accepted successfully',
+            report: updatedReport[0]
+        });
     } catch (error) {
-        await pool.query('ROLLBACK');
         console.error('Error accepting job:', error);
+        await pool.query('ROLLBACK');
         res.status(500).json({ 
             message: 'Failed to accept job',
             error: error.message
