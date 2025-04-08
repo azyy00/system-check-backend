@@ -22,7 +22,9 @@ app.use(cors({
         'http://localhost:3002',
         'https://system-check-kj7o.vercel.app',
         'https://system-check-kj7o-git-main-antmans-projects-0c115cbb.vercel.app',
-        'https://system-check-git-main-antmans-projects-0c115cbb.vercel.app'
+        'https://system-check-git-main-antmans-projects-0c115cbb.vercel.app',
+        'https://system-check.vercel.app',
+        'https://system-check-git-main.vercel.app'
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
