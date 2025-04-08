@@ -143,6 +143,14 @@ app.get('/reports', async (req, res) => {
         const [testConnection] = await pool.query('SELECT 1');
         console.log('Database connection test:', testConnection);
 
+        // First, let's check what's in the list_report table
+        const [reportCount] = await pool.query('SELECT COUNT(*) as count FROM list_report');
+        console.log('Total reports in list_report:', reportCount[0].count);
+
+        // Check reports with working status
+        const [workingCount] = await pool.query('SELECT COUNT(*) as count FROM list_report WHERE status = "working"');
+        console.log('Reports with working status:', workingCount[0].count);
+
         const [rows] = await pool.query(`
             SELECT 
                 r.id,
@@ -168,6 +176,12 @@ app.get('/reports', async (req, res) => {
         `);
 
         console.log('Query executed successfully. Row count:', rows?.length);
+        console.log('Sample of first report:', rows[0]);
+        
+        // Log reports with plumber assignments
+        const assignedReports = rows.filter(r => r.plumber_id != null);
+        console.log('Reports with plumber assignments:', assignedReports.length);
+        console.log('Reports with working status:', rows.filter(r => r.status === 'working').length);
         
         if (!Array.isArray(rows)) {
             throw new Error('Expected array of rows but got: ' + typeof rows);
