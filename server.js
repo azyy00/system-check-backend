@@ -16,7 +16,13 @@ const PORT = process.env.PORT || 5000;
 
 // Enable CORS for all routes
 app.use(cors({
-    origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'],
+    origin: [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://localhost:3002',
+        'https://system-check-kj7o.vercel.app',
+        'https://system-check-kj7o-git-main-antmans-projects-0c115cbb.vercel.app'
+    ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'expires', 'pragma', 'cache-control']
