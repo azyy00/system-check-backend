@@ -148,9 +148,17 @@ app.get('/reports', async (req, res) => {
         console.log('Total reports in list_report:', reportCount[0].count);
 
         // Check reports with working status
-        const [workingCount] = await pool.query('SELECT COUNT(*) as count FROM list_report WHERE status = "working"');
-        console.log('Reports with working status:', workingCount[0].count);
+        const [workingCount] = await pool.query('SELECT COUNT(*) as count, GROUP_CONCAT(id) as ids FROM list_report WHERE status = "working"');
+        console.log('Reports with working status:', {
+            count: workingCount[0].count,
+            ids: workingCount[0].ids
+        });
 
+        // Check plumber assignments
+        const [plumberAssignments] = await pool.query('SELECT id, status, plumber_id FROM list_report WHERE plumber_id IS NOT NULL');
+        console.log('Reports with plumber assignments:', plumberAssignments);
+
+        // Get all reports
         const [rows] = await pool.query(`
             SELECT 
                 r.id,
@@ -162,48 +170,33 @@ app.get('/reports', async (req, res) => {
                 r.proof_type,
                 r.\`nature of service\`,
                 r.location,
-                r.status as original_status,
+                r.status,
                 r.plumber_id,
+                r.\`contact no.\`,
                 p.username as plumber_username,
-                r.status as status
+                p.id as actual_plumber_id
             FROM list_report r 
             LEFT JOIN pda p ON r.plumber_id = p.id
-            LEFT JOIN \`accomplish-report\` ar ON r.id = ar.report_id
-            WHERE r.status IS NOT NULL
         `);
 
-        console.log('Query executed successfully. Row count:', rows?.length);
-        console.log('Sample of first report:', rows[0]);
+        console.log('All reports query result:', rows);
         
-        // Log reports with plumber assignments
-        const assignedReports = rows.filter(r => r.plumber_id != null);
-        console.log('Reports with plumber assignments:', assignedReports.length);
-        console.log('Reports with working status:', rows.filter(r => r.status === 'working').length);
-        console.log('All report statuses:', rows.map(r => ({ id: r.id, status: r.status, plumber_id: r.plumber_id })));
-        
-        if (!Array.isArray(rows)) {
-            throw new Error('Expected array of rows but got: ' + typeof rows);
-        }
-
         // Process the rows to ensure proper data format
         const processedRows = rows.map(row => {
-            console.log('Processing row ID:', row.id);
-            try {
-                return {
-                    ...row,
-                    proof: row.proof ? (
-                        row.proof_type ? 
-                        `data:${row.proof_type};base64,${row.proof.toString('base64')}` : 
-                        row.proof.toString('base64')
-                    ) : null
-                };
-            } catch (err) {
-                console.error('Error processing row:', row.id, err);
-                return {
-                    ...row,
-                    proof: null
-                };
-            }
+            console.log('Processing report:', {
+                id: row.id,
+                status: row.status,
+                plumber_id: row.plumber_id,
+                actual_plumber_id: row.actual_plumber_id
+            });
+            return {
+                ...row,
+                proof: row.proof ? (
+                    row.proof_type ? 
+                    `data:${row.proof_type};base64,${row.proof.toString('base64')}` : 
+                    row.proof.toString('base64')
+                ) : null
+            };
         });
 
         console.log('Successfully processed all rows');
@@ -515,7 +508,11 @@ app.post('/reports/:id/accept', async (req, res) => {
     const { id } = req.params;
     const { plumberId } = req.body;
     
-    console.log('Job acceptance request:', { reportId: id, plumberId });
+    console.log('Job acceptance request:', { 
+        reportId: id, 
+        plumberId,
+        body: req.body 
+    });
     
     try {
         // Start transaction
@@ -541,6 +538,19 @@ app.post('/reports/:id/accept', async (req, res) => {
             return res.status(400).json({ message: 'Report already assigned' });
         }
 
+        // Verify plumber exists
+        const [plumber] = await pool.query(
+            'SELECT * FROM pda WHERE id = ? AND role = "plumber"',
+            [plumberId]
+        );
+        console.log('Found plumber:', plumber[0]);
+
+        if (plumber.length === 0) {
+            console.log('Plumber not found');
+            await pool.query('ROLLBACK');
+            return res.status(404).json({ message: 'Plumber not found' });
+        }
+
         // Update the report status and assign plumber
         console.log('Updating report status to working and assigning plumber');
         const [result] = await pool.query(
@@ -564,7 +574,7 @@ app.post('/reports/:id/accept', async (req, res) => {
 
         // Commit the transaction
         await pool.query('COMMIT');
-        console.log('Transaction committed');
+        console.log('Transaction committed successfully');
         
         res.status(200).json({ 
             message: 'Job accepted successfully',
