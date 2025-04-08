@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import fs from 'fs';
 import sharp from 'sharp';
 import dotenv from 'dotenv';
+import corsMiddleware from './cors-config.js';
 
 // Load environment variables
 dotenv.config();
@@ -15,12 +16,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Enable CORS for all routes
-app.use(cors({
-    origin: '*',  // Allow all origins temporarily for testing
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'expires', 'pragma', 'cache-control']
-}));
+app.use(corsMiddleware);
 
 // Create a connection pool to the MySQL database
 const pool = mysql.createPool(process.env.DB_URL);
