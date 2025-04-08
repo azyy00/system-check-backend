@@ -16,7 +16,20 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Enable CORS for all routes
-app.use(corsMiddleware);
+app.use(cors({
+    origin: [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'https://system-check-kj7o.vercel.app',
+        'https://system-check-kj7o-git-main-antmans-projects-0c115cbb.vercel.app',
+        'https://system-check-git-main-antmans-projects-0c115cbb.vercel.app',
+        'https://system-check.vercel.app'
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'expires', 'pragma', 'cache-control'],
+    optionsSuccessStatus: 200
+}));
 
 // Create a connection pool to the MySQL database
 const pool = mysql.createPool(process.env.DB_URL);
