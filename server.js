@@ -155,6 +155,7 @@ app.get('/reports', async (req, res) => {
                 r.\`nature of service\`,
                 r.location,
                 r.status as original_status,
+                r.plumber_id,
                 p.username as plumber_username,
                 CASE 
                     WHEN ar.report_id IS NOT NULL THEN 'completed'
